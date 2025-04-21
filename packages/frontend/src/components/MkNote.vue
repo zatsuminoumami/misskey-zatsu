@@ -124,6 +124,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<button v-else :class="$style.footerButton" class="_button" disabled>
 					<i class="ti ti-ban"></i>
 				</button>
+				<!-- デフォルトリアクションを追加 -->
+				<button :class="$style.footerButton" class="_button" @click="reactDefaultEmoji">
+					<span style="font-size: 1.2em;">⭐</span>
+				</button>
 				<button ref="reactButton" :class="$style.footerButton" class="_button" @click="toggleReact()">
 					<i v-if="appearNote.reactionAcceptance === 'likeOnly' && appearNote.myReaction != null" class="ti ti-heart-filled" style="color: var(--MI_THEME-love);"></i>
 					<i v-else-if="appearNote.myReaction != null" class="ti ti-minus" style="color: var(--MI_THEME-accent);"></i>
@@ -651,6 +655,32 @@ function emitUpdReaction(emoji: string, delta: number) {
 		emit('removeReaction', emoji);
 	} else if (delta > 0) {
 		emit('reaction', emoji);
+	}
+}
+
+// デフォルトリアクションを追加
+function reactDefaultEmoji() {
+	sound.playMisskeySfx('reaction');
+
+	if (props.mock) {
+		emit('reaction', '⭐');
+		return;
+	}
+
+	misskeyApi('notes/reactions/create', {
+		noteId: appearNote.value.id,
+		reaction: '⭐',
+	});
+
+	// アニメーションを入れる
+	const el = reactButton.value;
+	if (el && prefer.s.animation) {
+		const rect = el.getBoundingClientRect();
+		const x = rect.left + (el.offsetWidth / 2);
+		const y = rect.top + (el.offsetHeight / 2);
+		const { dispose } = os.popup(MkRippleEffect, { x, y }, {
+			end: () => dispose(),
+		});
 	}
 }
 </script>
