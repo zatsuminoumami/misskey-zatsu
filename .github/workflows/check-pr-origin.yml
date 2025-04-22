@@ -1,0 +1,39 @@
+name: アップストリームリポジトリへのプルリクを禁止する
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  check-pr-origin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: プルリクのベースリポジトリを確認する
+        id: check
+        run: |
+          echo "Base Repo: ${{ github.event.pull_request.base.repo.full_name }}"
+          echo "Expected Repo: ${{ github.repository }}"
+
+          if [[ "${{ github.event.pull_request.base.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "wrong_target=true" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: プルリクターゲットが間違っている場合はDiscordに通知
+        if: steps.check.outputs.wrong_target == 'true'
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content":"🚨 **誤ったPR送信先**: `${{ github.event.pull_request.html_url }}` が `${{ github.event.pull_request.base.repo.full_name }}` に向けて作成されました。正しい送信先: `${{ github.repository }}`"}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+                - name: GitHubに警告コメントを残す
+        if: steps.check.outputs.wrong_target == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚨 このプルリクエストは誤って **`${{ github.event.pull_request.base.repo.full_name }}`** に送られています。正しくは `${{ github.repository }}` に送る必要があります。'
+            })

@@ -124,6 +124,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<button v-else :class="$style.footerButton" class="_button" disabled>
 					<i class="ti ti-ban"></i>
 				</button>
+				<!-- デフォルトリアクションを追加 -->
+				<button :class="$style.footerButton" class="_button" @click="reactDefaultEmoji">
+					<span style="font-size: 1.2em;">⭐</span>
+				</button>
 				<button ref="reactButton" :class="$style.footerButton" class="_button" @click="toggleReact()">
 					<i v-if="appearNote.reactionAcceptance === 'likeOnly' && appearNote.myReaction != null" class="ti ti-heart-filled" style="color: var(--MI_THEME-love);"></i>
 					<i v-else-if="appearNote.myReaction != null" class="ti ti-minus" style="color: var(--MI_THEME-accent);"></i>
@@ -223,6 +227,7 @@ import { getAppearNote } from '@/utility/get-appear-note.js';
 import { prefer } from '@/preferences.js';
 import { getPluginHandlers } from '@/plugin.js';
 import { DI } from '@/di.js';
+import MkReactionEffect from '@/components/MkReactionEffect.vue'; // デフォルトリアクションにアニメーションを追加
 
 const props = withDefaults(defineProps<{
 	note: Misskey.entities.Note;
@@ -277,6 +282,7 @@ const reactButton = useTemplateRef('reactButton');
 const clipButton = useTemplateRef('clipButton');
 const appearNote = computed(() => getAppearNote(note.value));
 const galleryEl = useTemplateRef('galleryEl');
+const defaultReactButton = useTemplateRef('defaultReactButton'); // デフォルトリアクションを追加
 const isMyRenote = $i && ($i.id === note.value.userId);
 const showContent = ref(false);
 const parsed = computed(() => appearNote.value.text ? mfm.parse(appearNote.value.text) : null);
@@ -651,6 +657,47 @@ function emitUpdReaction(emoji: string, delta: number) {
 		emit('removeReaction', emoji);
 	} else if (delta > 0) {
 		emit('reaction', emoji);
+	}
+}
+
+// デフォルトリアクションを追加
+function reactDefaultEmoji() {
+	const myReaction = appearNote.value.myReaction;
+
+	if (myReaction === '⭐') {
+		// すでに押してる場合は解除
+		misskeyApi('notes/reactions/delete', {
+			noteId: appearNote.value.id,
+		});
+		return;
+	}
+
+	// 押してなかったら追加
+	sound.playMisskeySfx('reaction');
+
+	if (props.mock) {
+		emit('reaction', '⭐');
+		return;
+	}
+
+	misskeyApi('notes/reactions/create', {
+		noteId: appearNote.value.id,
+		reaction: '⭐',
+	});
+
+	// アニメーション表示
+	const el = defaultReactButton.value;
+	if (el && prefer.s.animation) {
+		const rect = el.getBoundingClientRect();
+		const x = rect.left + (el.offsetWidth / 2);
+		const y = rect.top + (el.offsetHeight / 2);
+		const { dispose } = os.popup(MkReactionEffect, {
+			reaction: '⭐',
+			x,
+			y,
+		}, {
+			end: () => dispose(),
+		});
 	}
 }
 </script>
