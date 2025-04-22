@@ -227,6 +227,7 @@ import { getAppearNote } from '@/utility/get-appear-note.js';
 import { prefer } from '@/preferences.js';
 import { getPluginHandlers } from '@/plugin.js';
 import { DI } from '@/di.js';
+import MkReactionEffect from '@/components/MkReactionEffect.vue'; // デフォルトリアクションにアニメーションを追加
 
 const props = withDefaults(defineProps<{
 	note: Misskey.entities.Note;
@@ -281,6 +282,7 @@ const reactButton = useTemplateRef('reactButton');
 const clipButton = useTemplateRef('clipButton');
 const appearNote = computed(() => getAppearNote(note.value));
 const galleryEl = useTemplateRef('galleryEl');
+const defaultReactButton = useTemplateRef('defaultReactButton'); // デフォルトリアクションを追加
 const isMyRenote = $i && ($i.id === note.value.userId);
 const showContent = ref(false);
 const parsed = computed(() => appearNote.value.text ? mfm.parse(appearNote.value.text) : null);
@@ -660,6 +662,17 @@ function emitUpdReaction(emoji: string, delta: number) {
 
 // デフォルトリアクションを追加
 function reactDefaultEmoji() {
+	const myReaction = appearNote.value.myReaction;
+
+	if (myReaction === '⭐') {
+		// すでに押してる場合は解除
+		misskeyApi('notes/reactions/delete', {
+			noteId: appearNote.value.id,
+		});
+		return;
+	}
+
+	// 押してなかったら追加
 	sound.playMisskeySfx('reaction');
 
 	if (props.mock) {
@@ -672,13 +685,17 @@ function reactDefaultEmoji() {
 		reaction: '⭐',
 	});
 
-	// アニメーションを入れる
-	const el = reactButton.value;
+	// アニメーション表示
+	const el = defaultReactButton.value;
 	if (el && prefer.s.animation) {
 		const rect = el.getBoundingClientRect();
 		const x = rect.left + (el.offsetWidth / 2);
 		const y = rect.top + (el.offsetHeight / 2);
-		const { dispose } = os.popup(MkRippleEffect, { x, y }, {
+		const { dispose } = os.popup(MkReactionEffect, {
+			reaction: '⭐',
+			x,
+			y,
+		}, {
 			end: () => dispose(),
 		});
 	}
